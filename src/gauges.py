@@ -43,36 +43,44 @@ def find_index_row(df,values,col):
     return idx
 
 def clean_outliers_internos(df,categoria):
-    if categoria =='convencional':
-        cols = ['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med']
 
-        df[['Nivel Med']]=np.round(df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h']].mean(axis=1,skipna=True),2)
+    if categoria =='convencional':
+
+        cols = ['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h']
 
     elif categoria == 'automatica':
+
         cols = [f'Nivel {col_idx}h' for col_idx in range(24)]
 
     outlier_inter_dict={}
+
     for col in cols:
         Q1 = df[col].quantile(0.25)
         Q3 = df[col].quantile(0.75)
         IQR = Q3 - Q1
 
         outlier_upper=Q3 + 1.5 * IQR
-        index_out=df[df[col]>outlier_upper].index.tolist()
+        outlier_lower=Q1 - 1.5 * IQR
+
+        index_out=df[(df[col]>outlier_upper) | (df[col]<outlier_lower)].index.tolist()
+        #index_out=df[df[col]<outlier_lower].index.tolist()
         dates_out=df.loc[index_out,'Fecha Reg']
         outlier_inter_dict[col]=dates_out
+
 
     outlaiers_interno_df=pd.DataFrame(outlier_inter_dict)
     outlaiers_interno_solitarios=outlaiers_interno_df[outlaiers_interno_df.isnull().sum(axis=1)>2]
 
+    list_log_value_report=[]
     for col in cols:
         elements_to_erase=find_index_row(df=df,col='Fecha Reg',values=outlaiers_interno_solitarios[col].dropna())
+        list_log_value_report.append(df.loc[elements_to_erase,:])
         df.loc[elements_to_erase,col]=np.NaN
         df.loc[df[col]<0,col]=np.NaN
         
     
     
-    return df
+    return df,pd.concat(list_log_value_report)#outlaiers_interno_solitarios
 
 class Estacion:
     def __init__(self,database):
@@ -89,6 +97,8 @@ class Estacion:
 
     def estaciones_por_dz(self,num):
         self.tables_dz={}
+        self.log_report_value_dz={}
+
         tables = tables_in_sqlite_db(self.database)
         filtro= self.Maestro[self.Maestro.DZ==num]
         name=list(filtro.NOMBRE_ESTACION+' '+filtro.CATEGORIA)
@@ -99,10 +109,15 @@ class Estacion:
                 sql_query= "SELECT * FROM "+estacion
                 df = pd.read_sql(sql_query, self.database)
                 df.columns=['Codigo','Estacion','Fecha Reg','ano','mes','dia','Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med','Caudal']
-                df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med']]=df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med']].apply(pd.to_numeric,errors='coerce')
-                self.tables_dz[name[i]]=clean_outliers_internos(df,categoria='convencional')
+                df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h']]=df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h']].apply(pd.to_numeric,errors='coerce')
+                df[['Nivel Med']]=np.round(df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h']].mean(axis=1,skipna=True),2)
+                self.tables_dz[name[i]],self.log_report_value_dz[name[i]]=clean_outliers_internos(df,categoria='convencional')
                 
         return self.tables_dz
+
+    def get_log_report(self):
+
+        return self.log_report_value_dz
     
     def estaciones_por_cuenca_dz(self,num):
         self.gauge_cuenca={}
@@ -138,7 +153,7 @@ class Convencional(Estacion):
             df = self.tables_dz[estacion]
             df.columns=['Codigo','Estacion','Fecha Reg','ano','mes','dia','Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med','Caudal']
             df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med']]=df[['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med']].apply(pd.to_numeric,errors='coerce')
-            df.plot(x='Fecha Reg',y=['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med'],figsize = (25,10),title=estacion)
+            df.plot(x='Fecha Reg',y=['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h'],figsize = (25,10),title=estacion)
         plt.show()
         
     def stats_dz_niveles(self):
