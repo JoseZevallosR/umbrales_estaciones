@@ -206,7 +206,7 @@ class Convencional(Estacion):
             df=self.tables_dz[estacion]
             df.columns=['Codigo','Estacion','Fecha Reg','ano','mes','dia','Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med','Caudal']
             
-            cols=['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h','Nivel Med']
+            cols=['Nivel 06h','Nivel 10h','Nivel 14h','Nivel 18h']
             df[cols]=df[cols].apply(pd.to_numeric,errors='coerce')
             
             #Todos los anos presentes en la base de datos
@@ -238,8 +238,8 @@ class Convencional(Estacion):
                 #stats_df['max año previo '+str(previous_year)]=list(df_previous[cols].max())
                 #stats_df['max historico '+str(year0)+'-'+str(previous_year)]=list(df_historic[cols].max())
                 
-                stats_df['Año de Inicio']=list(np.repeat(year0,5))
-                stats_df['Año de Fin']=list(np.repeat(present_year,5))
+                stats_df['Año de Inicio']=list(np.repeat(year0,len(cols)))
+                stats_df['Año de Fin']=list(np.repeat(present_year,len(cols)))
                 stats_df['max año previo']=list(df_previous[cols].max())
                 stats_df['max historico']=list(df_historic[cols].max())
 
@@ -341,13 +341,13 @@ class Automatica(Estacion):
                 estiaje_historic=(month_historic==6) | (month_historic==7) | (month_historic==8) | (month_historic==9)
 
 
-                Estacion_niveles= [estacion+' '+col for col in cols]
+                #Estacion_niveles= [estacion+' '+col for col in cols]
+                Estacion_niveles= [estacion]
 
                 stats_df={}
                 stats_df['Estaciones']=Estacion_niveles
-                #stats_df['max año previo '+str(previous_year)]=list(df_previous[cols].max())
-                #stats_df['max historico '+str(year0)+'-'+str(previous_year)]=list(df_historic[cols].max())
                 
+                """
                 stats_df['Año de Inicio']=list(np.repeat(year0,len(cols)))
                 stats_df['Año de Fin']=list(np.repeat(present_year,len(cols)))
                 stats_df['max año previo']=list(df_previous[cols].max())
@@ -362,6 +362,23 @@ class Automatica(Estacion):
                 stats_df['max año historico avenida']=list(df_historic[avenida_historic][cols].max())
                 stats_df['min año historico estiaje']=list(df_historic[estiaje_historic][cols].min())
                 stats_df['min año historico avenida']=list(df_historic[avenida_historic][cols].min())
+                self.stats_previous_historic.append(pd.DataFrame(stats_df))
+                """
+                stats_df['Año de Inicio']=[year0]
+                stats_df['Año de Fin']=[present_year]
+                stats_df['max año previo']=[np.max(list(df_previous[cols].dropna().max()))]
+                stats_df['max historico']=[np.max(list(df_historic[cols].dropna().max()))]
+
+                stats_df['max año previo estiaje']=[np.max(df_previous[estiaje_previous][cols].dropna().max())]
+                stats_df['max año previo avenida']=[np.max(df_previous[avenida_previous][cols].dropna().max())]
+                stats_df['min año previo estiaje']=[np.min(df_previous[estiaje_previous][cols].dropna().min())]
+                stats_df['min año previo avenida']=[np.min(df_previous[avenida_previous][cols].dropna().min())]
+
+                stats_df['max año historico estiaje']=[np.max(list(df_historic[estiaje_historic][cols].dropna().max()))]
+                stats_df['max año historico avenida']=[np.max(list(df_historic[avenida_historic][cols].dropna().max()))]
+                stats_df['min año historico estiaje']=[np.min(list(df_historic[estiaje_historic][cols].dropna().min()))]
+                stats_df['min año historico avenida']=[np.min(list(df_historic[avenida_historic][cols].dropna().min()))]
+
                 self.stats_previous_historic.append(pd.DataFrame(stats_df))
             else:
                 print(estacion+ 'tiene menos de dos años de registro '+str(years))        
