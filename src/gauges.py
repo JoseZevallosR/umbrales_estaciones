@@ -9,6 +9,38 @@ from scipy import stats
 import numpy as np
 
 #para el ttest pvalue debe ser mayor a 0.05 para aceptar de que son la misma muestra
+def changing(row):
+    cluster=[]
+    count=0
+
+    for idx,i in enumerate(row):
+        if type(i)==type('str'):
+            count = count+1
+            if count >=2:
+                
+                cluster.append(pass_value_index)
+                cluster.append(idx)
+        else:
+            count = 0
+
+        pass_value_index=idx
+
+    for idx in list(dict.fromkeys(cluster)):
+        row[idx]=np.NaN
+    
+    return row
+
+def slice_window(i=0,n=3):
+    
+    cols = [f'Nivel {col_idx}h' for col_idx in range(24)]
+    cols=cols+cols
+    if i==0:
+        return [cols[i] for i in np.arange(i,(i+n+1))]
+    elif i==23:
+        return [cols[i] for i in np.arange((i-n),(i+1))]
+    else:
+        return [cols[i] for i in np.arange((i-n),(i+n+1))]
+
 def tables_in_sqlite_db(conn):
     cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
     tables = [
@@ -68,8 +100,13 @@ def clean_outliers_internos(df,categoria):
         outlier_inter_dict[col]=dates_out
 
 
+    
     outlaiers_interno_df=pd.DataFrame(outlier_inter_dict)
-    outlaiers_interno_solitarios=outlaiers_interno_df[outlaiers_interno_df.isnull().sum(axis=1)>2]
+    #Modificar esta linea para revisar las horas vecinas
+    if categoria =='convencional':
+        outlaiers_interno_solitarios=outlaiers_interno_df[outlaiers_interno_df.isnull().sum(axis=1)>2]
+    elif categoria == 'automatica':
+        outlaiers_interno_solitarios=outlaiers_interno_df.apply(changing,axis=1)
 
     list_log_value_report=[]
     for col in cols:
@@ -208,9 +245,14 @@ class Convencional(Estacion):
 
                 stats_df['max año previo estiaje']=df_previous[estiaje_previous][cols].max()
                 stats_df['max año previo avenida']=df_previous[avenida_previous][cols].max()
+                stats_df['min año previo estiaje']=df_previous[estiaje_previous][cols].min()
+                stats_df['min año previo avenida']=df_previous[avenida_previous][cols].min()
 
                 stats_df['max año historico estiaje']=list(df_historic[estiaje_historic][cols].max())
                 stats_df['max año historico avenida']=list(df_historic[avenida_historic][cols].max())
+                stats_df['min año historico estiaje']=list(df_historic[estiaje_historic][cols].min())
+                stats_df['min año historico avenida']=list(df_historic[avenida_historic][cols].min())
+                
                 self.stats_previous_historic.append(pd.DataFrame(stats_df))
             else:
                 print(estacion+ 'tiene menos de dos años de registro '+str(years))        
@@ -225,6 +267,8 @@ class Automatica(Estacion):
 
     def estaciones_por_dz(self,num):
         self.tables_dz={}
+        self.log_report_value_dz={}
+
         tables = tables_in_sqlite_db(self.database)
         filtro= self.Maestro[self.Maestro.DZ==num]
         name=list(filtro.NOMBRE_ESTACION+' '+filtro.CATEGORIA)
@@ -234,7 +278,7 @@ class Automatica(Estacion):
             if estacion in tables:
                 sql_query= "SELECT * FROM "+estacion
                 df = pd.read_sql(sql_query, self.database)
-                self.tables_dz[name[i]]=clean_outliers_internos(df,categoria='automatica')
+                self.tables_dz[name[i]],self.log_report_value_dz[name[i]]=clean_outliers_internos(df,categoria='automatica')
                 
         return self.tables_dz
 
@@ -311,9 +355,13 @@ class Automatica(Estacion):
 
                 stats_df['max año previo estiaje']=df_previous[estiaje_previous][cols].max()
                 stats_df['max año previo avenida']=df_previous[avenida_previous][cols].max()
+                stats_df['min año previo estiaje']=df_previous[estiaje_previous][cols].min()
+                stats_df['min año previo avenida']=df_previous[avenida_previous][cols].min()
 
                 stats_df['max año historico estiaje']=list(df_historic[estiaje_historic][cols].max())
                 stats_df['max año historico avenida']=list(df_historic[avenida_historic][cols].max())
+                stats_df['min año historico estiaje']=list(df_historic[estiaje_historic][cols].min())
+                stats_df['min año historico avenida']=list(df_historic[avenida_historic][cols].min())
                 self.stats_previous_historic.append(pd.DataFrame(stats_df))
             else:
                 print(estacion+ 'tiene menos de dos años de registro '+str(years))        
